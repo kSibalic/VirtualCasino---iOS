@@ -1,17 +1,13 @@
-//
-//  RMA_LVApp.swift
-//  RMA_LV
-//
-//  Created by Karlo Šibalić on 05.04.2025..
-//
-
 import SwiftUI
 
 @main
 struct RMA_LVApp: App {
+    @StateObject private var gameState = GameState()
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LobbyView()
+                .environmentObject(gameState)
         }
     }
 }

@@ -175,3 +175,11 @@ struct SlotReel: View {
             }
     }
 }
+
+#Preview {
+    let gameState = GameState()
+    gameState.coins = 1000
+    
+    return SlotMachineView()
+        .environmentObject(gameState)
+}

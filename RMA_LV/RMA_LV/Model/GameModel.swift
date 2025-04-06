@@ -5,6 +5,7 @@ enum GameType: String, CaseIterable, Identifiable {
     case slots = "Slot Machine"
     case blackjack = "Blackjack"
     case roulette = "Roulette"
+    case redDog = "Red Dog"
     
     var id: String { self.rawValue }
     
@@ -13,6 +14,7 @@ enum GameType: String, CaseIterable, Identifiable {
         case .slots: return "🎰"
         case .blackjack: return "🃏"
         case .roulette: return "🎲"
+        case .redDog: return "🐶"
         }
     }
     
@@ -21,6 +23,7 @@ enum GameType: String, CaseIterable, Identifiable {
         case .slots: return "Spin to match symbols and win big!"
         case .blackjack: return "Reach 21 without going over"
         case .roulette: return "Place your bets and spin the wheel"
+        case .redDog: return "Will It Fit? Win Big!"
         }
     }
 }

@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct LobbyView: View {
-    @StateObject var gameState = GameState()
+    //@StateObject var gameState = GameState()
+    @EnvironmentObject var gameState: GameState
     
     var body: some View {
         NavigationView {
@@ -68,7 +69,7 @@ struct LobbyView: View {
                 ScrollView {
                     VStack(spacing: 15) {
                         ForEach(GameType.allCases) { game in
-                            NavigationLink(destination: gameDestination(for: game)) {
+                            NavigationLink(destination: gameDestination(for: game).navigationBarHidden(true)) {
                                 GameCard(gameType: game)
                             }
                         }
@@ -78,6 +79,7 @@ struct LobbyView: View {
             }
             .navigationBarHidden(true)
         }
+        .navigationViewStyle(StackNavigationViewStyle())
         .environmentObject(gameState)
     }
     
@@ -91,6 +93,8 @@ struct LobbyView: View {
             BlackjackView()
         case .roulette:
             RouletteView()
+        case .redDog:
+            RedDogView()
         }
     }
 }

@@ -153,7 +153,10 @@ class BlackjackGame: ObservableObject {
 
 struct BlackjackView: View {
     @EnvironmentObject var gameState: GameState
+    @Environment(\.presentationMode) var presentationMode
+    
     @StateObject private var blackjackGame = BlackjackGame()
+    
     @State private var betAmount: Int = 10
     @State private var recentResults: [Character] = []
     
@@ -161,7 +164,9 @@ struct BlackjackView: View {
         VStack(spacing: 16) {
             // Header with back button
             HStack {
-                NavigationLink(destination: LobbyView().navigationBarHidden(true)) {
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
                     HStack {
                         Image(systemName: "chevron.left")
                         Text("Lobby")
@@ -386,4 +391,12 @@ struct CardView: View {
             }
         }
     }
+}
+
+#Preview {
+    let gameState = GameState()
+    gameState.coins = 1000
+    
+    return BlackjackView()
+        .environmentObject(gameState)
 }

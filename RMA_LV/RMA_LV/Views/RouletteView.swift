@@ -68,18 +68,42 @@ class RouletteGame: ObservableObject {
     @Published var showResult: Bool = false
     @Published var winAmount: Int = 0
     @Published var recentNumbers: [RouletteNumber] = []
+    @Published var rotationAngle: Double = 0
+    @Published var wheelSpeed: Double = 0
+    @Published var selectedWheelIndex: Int = 0
     
     let allNumbers: [RouletteNumber] = Array(0...36).map { RouletteNumber(number: $0) }
+    // Roulette wheel number arrangement (European style)
+    let wheelNumbers = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26]
     
     func spin(bet: Bet) -> (won: Bool, payout: Int) {
         isSpinning = true
         gameStatus = "Wheel is spinning..."
         
+        // Initialize spinning animation
+        let randomRotations = Double.random(in: 5...10) // Random number of full rotations
+        let randomIndex = Int.random(in: 0...36)
+        selectedWheelIndex = randomIndex
+        
+        // Calculate necessary angle
+        let targetPosition = getWheelPosition(for: wheelNumbers[randomIndex])
+        let totalRotation = (randomRotations * 360) + targetPosition
+        
+        // Start wheel animation
+        wheelSpeed = 720 // Initial speed (deg/sec)
+        
+        // Simulate spinning with decreasing speed
+        var currentAngle = rotationAngle
+        let spinDuration = 4.0 // Seconds for spin
+        
+        withAnimation(.easeOut(duration: spinDuration)) {
+            rotationAngle += totalRotation
+        }
+        
         // Simulate spinning delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            // Get random number
-            let randomIndex = Int.random(in: 0...36)
-            self.currentNumber = self.allNumbers[randomIndex]
+        DispatchQueue.main.asyncAfter(deadline: .now() + spinDuration) {
+            // Get result number
+            self.currentNumber = self.allNumbers[self.wheelNumbers[randomIndex]]
             
             // Add to recent numbers
             self.recentNumbers.insert(self.currentNumber!, at: 0)
@@ -97,6 +121,14 @@ class RouletteGame: ObservableObject {
         }
         
         return (false, 0) // Default return, actual result is processed async
+    }
+    
+    // Calculate the position on the wheel for a given number
+    func getWheelPosition(for number: Int) -> Double {
+        if let index = wheelNumbers.firstIndex(of: number) {
+            return Double(index) * (360.0 / Double(wheelNumbers.count))
+        }
+        return 0
     }
     
     func checkWin(number: RouletteNumber, bet: Bet) {
@@ -163,9 +195,80 @@ class RouletteGame: ObservableObject {
     }
 }
 
+struct RouletteWheel: View {
+    let numbers: [Int]
+    @Binding var rotationAngle: Double
+    let size: CGFloat
+    
+    init(numbers: [Int], rotationAngle: Binding<Double>, size: CGFloat = 200) {
+        self.numbers = numbers
+        self._rotationAngle = rotationAngle
+        self.size = size
+    }
+    
+    var body: some View {
+        ZStack {
+            // Outer wheel
+            Circle()
+                .fill(Color.brown)
+                .frame(width: size, height: size)
+            
+            // Pockets
+            ForEach(0..<numbers.count, id: \.self) { index in
+                let angle = Double(index) * (360.0 / Double(numbers.count))
+                let number = numbers[index]
+                let color: Color = number == 0 ? .green : (
+                    [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].contains(number) ? .red : .black
+                )
+                
+                PocketView(number: number, color: color, angle: angle, size: size * 0.9)
+            }
+            
+            // Center circle
+            Circle()
+                .fill(Color(UIColor.darkGray))
+                .frame(width: size * 0.15, height: size * 0.15)
+            
+            // Ball indicator
+            Circle()
+                .fill(Color.white)
+                .frame(width: 10, height: 10)
+                .offset(y: -size/2 + 15)
+        }
+        .rotation3DEffect(
+            .degrees(rotationAngle),
+            axis: (x: 0, y: 0, z: 1),
+            anchor: .center
+        )
+    }
+}
+
+struct PocketView: View {
+    let number: Int
+    let color: Color
+    let angle: Double
+    let size: CGFloat
+    
+    var body: some View {
+        VStack {
+            Text("\(number)")
+                .font(.system(size: 10))
+                .foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(color)
+                .clipShape(Circle())
+        }
+        .offset(y: -size/2 + 25)
+        .rotationEffect(.degrees(angle))
+    }
+}
+
 struct RouletteView: View {
     @EnvironmentObject var gameState: GameState
+    @Environment(\.presentationMode) var presentationMode
+    
     @StateObject private var rouletteGame = RouletteGame()
+    
     @State private var selectedBetType: BetType = .red
     @State private var betAmount: Int = 10
     @State private var selectedNumber: Int = 0
@@ -176,7 +279,9 @@ struct RouletteView: View {
         VStack(spacing: 16) {
             // Header with back button
             HStack {
-                NavigationLink(destination: LobbyView().navigationBarHidden(true)) {
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
                     HStack {
                         Image(systemName: "chevron.left")
                         Text("Lobby")
@@ -230,30 +335,34 @@ struct RouletteView: View {
             .frame(height: 45)
             .padding(.horizontal)
             
-            // Current spin result
-            if rouletteGame.isSpinning {
-                Text("Spinning...")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .frame(height: 100)
-            } else if let currentNumber = rouletteGame.currentNumber, rouletteGame.showResult {
-                ZStack {
-                    Circle()
-                        .fill(currentNumber.color)
-                        .frame(width: 100, height: 100)
-                    Text("\(currentNumber.number)")
-                        .foregroundColor(.white)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+            // Spinning wheel animation or result
+            ZStack {
+                if rouletteGame.isSpinning {
+                    RouletteWheel(
+                        numbers: rouletteGame.wheelNumbers,
+                        rotationAngle: $rouletteGame.rotationAngle,
+                        size: 200
+                    )
+                } else if let currentNumber = rouletteGame.currentNumber, rouletteGame.showResult {
+                    ZStack {
+                        Circle()
+                            .fill(currentNumber.color)
+                            .frame(width: 100, height: 100)
+                        Text("\(currentNumber.number)")
+                            .foregroundColor(.white)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                    }
+                } else {
+                    RouletteWheel(
+                        numbers: rouletteGame.wheelNumbers,
+                        rotationAngle: $rouletteGame.rotationAngle,
+                        size: 200
+                    )
+                    .opacity(0.8)
                 }
-                .frame(height: 120)
-            } else {
-                Image(systemName: "circle.grid.3x3.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .foregroundColor(.green)
-                    .frame(width: 100, height: 100)
             }
+            .frame(height: 220)
             
             // Game status
             Text(rouletteGame.gameStatus)
@@ -380,4 +489,12 @@ struct RouletteView: View {
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
     }
+}
+
+#Preview {
+    let gameState = GameState()
+    gameState.coins = 1000
+    
+    return RouletteView()
+        .environmentObject(gameState)
 }
